@@ -35,3 +35,11 @@ npm run test:e2e
 Браузерные тесты используют `/usr/bin/chromium`. На другой машине задайте доступный браузер в `playwright.config.ts` либо удалите `executablePath` и выполните `npx playwright install chromium`. Dev-сервер тесты запускают автоматически.
 
 Архитектура и ограничения: [docs/PROJECT.md](docs/PROJECT.md). Состояние реализации: [docs/STATUS.md](docs/STATUS.md).
+
+## GitHub Pages
+
+Публичный адрес: https://ygadalov.github.io/pose-sketch/.
+
+В репозитории откройте **Settings → Pages → Build and deployment → Source** и выберите **GitHub Actions**. Workflow `.github/workflows/pages.yml` при каждом push в `main` запускает тесты и сборку и публикует только `dist/`. При необходимости запустите его вручную: **Actions → Deploy PoseSketch to GitHub Pages → Run workflow**.
+
+`vite.config.ts` задаёт `/pose-sketch/` для production-ресурсов. Dev-сервер работает с `/`. Публикация исходной ветки `main` напрямую не подходит: браузер не выполняет исходный TypeScript приложения.

@@ -47,3 +47,16 @@ test('each body part keeps its own tool when switching between knee and foot',as
  await page.locator('#part').selectOption('rightLeg');await expect(page.locator('#rotate')).toHaveClass('active');
  await page.locator('#part').selectOption('leftArm');await page.locator('#move').click();await page.locator('#part').selectOption('leftArm:bend');await page.locator('#rotate').click();await page.locator('#part').selectOption('leftArm');await expect(page.locator('#move')).toHaveClass('active');
 });
+
+test('anatomical volume, skeleton and overlay share pose and camera in complex poses',async({page})=>{
+ test.setTimeout(60000);
+ await page.setViewportSize({width:1440,height:1000});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/');
+ for(const poseName of ['Исходная','Приседание','Скейтбордист']){
+  await page.locator(`[data-preset="${poseName}"]`).click();const before=await getPose(page);const camera=await page.evaluate(()=>(window as any).poseSketch.getCamera());
+  await page.locator('[data-mode="Объём"]').click();await expect(page.locator('#overlay')).not.toBeChecked();expect(await getPose(page)).toEqual(before);expect(await page.evaluate(()=>(window as any).poseSketch.getCamera())).toEqual(camera);
+  for(const angle of ['Спереди','Справа','¾']){await page.locator(`[data-view="${angle}"]`).click();await page.locator('canvas').screenshot({path:`test-results/anatomy-${poseName}-${angle}.png`});}
+  await page.locator('#overlay').check();expect(await getPose(page)).toEqual(before);await page.locator('#overlay').uncheck();
+  await page.locator('[data-mode="Скелет"]').click();expect(await getPose(page)).toEqual(before);
+ }
+ expect(errors).toEqual([]);
+});

@@ -286,3 +286,34 @@ button{line-height:1.35}
 .setting small{font-size:12px}
 footer{flex-wrap:wrap;height:auto;min-height:52px;gap:6px;padding:12px 15px;font-size:11px}
 }
+
+/* Phone panels can be collapsed without changing pose, camera or desktop layout. */
+.mobile-panel-bar{display:none}
+aside[hidden]{display:none!important}
+@media(max-width:700px),(min-width:520px) and (max-width:950px) and (max-height:550px){
+  :root{--mobile-header-height:64px;--panel-bar-height:60px}
+  header{height:var(--mobile-header-height)}
+  .mobile-panel-bar{display:flex;position:sticky;top:0;z-index:25;gap:8px;height:var(--panel-bar-height);padding:8px 12px;background:#fafbf7;border-bottom:1px solid var(--line)}
+  .mobile-panel-bar button{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:1;min-width:0;min-height:44px;padding:8px 12px;border-radius:5px;font-size:14px;color:#526743;background:#fafbf7}
+  .mobile-panel-bar button[aria-expanded="true"]{background:#eaf0e2;border-color:#d8e1cc}
+  .mobile-panel-bar button[aria-expanded="true"] svg{transform:rotate(180deg)}
+  .mobile-panel-bar svg{flex:none;transition:transform .15s}
+  main{display:flex;flex-direction:column;height:auto;min-height:0}
+  .right{border-left:0;border-top:1px solid var(--line)}
+  .mobile-workspace-only main{height:calc(100dvh - var(--mobile-header-height) - var(--panel-bar-height));min-height:480px}
+  .mobile-workspace-only .workspace{height:100%;min-height:0;flex:1}
+  .mobile-workspace-only footer{display:none}
+}
+@media(min-width:520px) and (max-width:950px) and (max-height:550px){
+  :root{--mobile-header-height:56px;--panel-bar-height:60px}
+  .workspace{height:500px;min-height:500px}
+  .mobile-workspace-only main{min-height:0}
+  .mobile-workspace-only .viewport-top{top:10px;left:12px;right:auto}
+  .mobile-workspace-only .overlay{display:none}
+  .mobile-workspace-only .tools{top:10px;left:auto;right:12px;flex-direction:row;padding:4px;gap:2px}
+  .mobile-workspace-only .tools button{width:36px;height:36px}
+  .mobile-workspace-only .tools hr{width:1px;height:24px;border:0;border-left:1px solid var(--line);margin:6px 3px}
+  .mobile-workspace-only #viewport{bottom:94px}
+  .mobile-workspace-only .camera-bar{bottom:6px}
+  .mobile-workspace-only .canvas-help,.mobile-workspace-only .canvas-caption,.mobile-workspace-only .axis-key{display:none}
+}

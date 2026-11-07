@@ -60,3 +60,32 @@ test('anatomical volume, skeleton and overlay share pose and camera in complex p
  }
  expect(errors).toEqual([]);
 });
+
+test('phone panels collapse independently, preserve the pose and restore after reload',async({browser})=>{
+ const context=await browser.newContext({baseURL:'http://127.0.0.1:5173',viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+ try{
+  const page=await context.newPage();await page.goto('/');await page.locator('[data-preset="Приседание"]').tap();
+  const pose=await getPose(page),camera=await page.evaluate(()=>(window as any).poseSketch.getCamera());
+  const workshop=page.locator('#workshop-panel'),editor=page.locator('#editor-panel');
+  await expect(workshop).toBeVisible();await expect(editor).toBeVisible();
+  await page.getByRole('button',{name:'Скрыть редактор поз',exact:true}).tap();await expect(editor).toBeHidden();await expect(workshop).toBeVisible();
+  await page.getByRole('button',{name:'Скрыть мастерскую',exact:true}).tap();await expect(workshop).toBeHidden();await expect(editor).toBeHidden();
+  await expect(page.locator('#toggle-workshop')).toHaveAttribute('aria-expanded','false');await expect(page.locator('#toggle-editor')).toHaveAttribute('aria-expanded','false');
+  await expect(page.locator('footer')).toBeHidden();expect(await getPose(page)).toEqual(pose);expect(await page.evaluate(()=>(window as any).poseSketch.getCamera())).toEqual(camera);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  expect(await page.evaluate(()=>document.documentElement.scrollHeight)).toBeLessThanOrEqual(844);
+  const scene=await page.locator('.workspace').boundingBox();expect(scene!.y+scene!.height).toBeLessThanOrEqual(844);expect(scene!.height).toBeGreaterThan(680);
+  await page.screenshot({path:'test-results/mobile-workspace-only.png'});
+  await page.reload();await expect(workshop).toBeHidden();await expect(editor).toBeHidden();expect(await getPose(page)).toEqual(pose);
+  // Panels can be brought back independently without replacing the selected pose.
+  await page.getByRole('button',{name:'Показать редактор поз',exact:true}).tap();await expect(editor).toBeVisible();await expect(workshop).toBeHidden();
+  await page.getByRole('button',{name:'Показать мастерскую',exact:true}).tap();await expect(workshop).toBeVisible();expect(await getPose(page)).toEqual(pose);
+  await page.getByRole('button',{name:'Скрыть редактор поз',exact:true}).tap();await page.getByRole('button',{name:'Скрыть мастерскую',exact:true}).tap();
+  // Phone preferences must never hide the desktop's panels.
+  await page.setViewportSize({width:1440,height:1000});await expect(workshop).toBeVisible();await expect(editor).toBeVisible();await expect(page.locator('.mobile-panel-bar')).toBeHidden();
+  // Turning the same phone sideways still exposes the restore buttons and scene.
+  await page.setViewportSize({width:844,height:390});await expect(workshop).toBeHidden();await expect(editor).toBeHidden();await expect(page.getByRole('button',{name:'Показать редактор поз',exact:true})).toBeVisible();
+  await expect(page.locator('canvas')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(844);expect(await page.evaluate(()=>document.documentElement.scrollHeight)).toBeLessThanOrEqual(390);
+  await page.screenshot({path:'test-results/mobile-workspace-landscape.png'});
+ }finally{await context.close();}
+});

@@ -14,6 +14,7 @@ export function initPanels() {
   } catch { /* The workspace also works without browser storage. */ }
 
   const layout = document.querySelector<HTMLElement>('.studio-layout')!;
+  const workspace=document.querySelector<HTMLElement>('.workspace')!;
   const backdrop = document.getElementById('panel-backdrop')!;
   const controls = {
     workshop: {panel: document.getElementById('workshop-panel')!, shell: document.getElementById('workshop-shell')!, button: document.getElementById('toggle-workshop')!, label: 'мастерскую'},
@@ -42,6 +43,7 @@ export function initPanels() {
       button.querySelector('.panel-arrow')!.textContent = name === 'workshop' ? (expanded ? '<' : '>') : (expanded ? '>' : '<');
     }
     backdrop.hidden = !drawers.matches || (!preferences.workshop && !preferences.editor);
+    workspace.inert=!backdrop.hidden;
     document.body.classList.toggle('workspace-only', !preferences.workshop && !preferences.editor);
   }
   for (const name of ['workshop', 'editor'] as const) {
@@ -51,12 +53,22 @@ export function initPanels() {
       update();store();
     });
   }
-  backdrop.addEventListener('click', () => {
-    preferences.workshop = false;preferences.editor = false;update();store();
-  });
+  function closeDrawers(){
+    const previous=preferences.editor?'editor':'workshop';
+    preferences.workshop=false;preferences.editor=false;update();store();
+    controls[previous].button.focus({preventScroll:true});
+  }
+  backdrop.addEventListener('click', closeDrawers);
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && drawers.matches && !backdrop.hidden) {
-      preferences.workshop = false;preferences.editor = false;update();store();
+    if(document.querySelector<HTMLDialogElement>('#help-dialog')?.open)return;
+    if(!drawers.matches||backdrop.hidden)return;
+    if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closeDrawers();}
+    if(event.key==='Tab'){
+      const name=preferences.editor?'editor':'workshop',other=name==='editor'?'workshop':'editor';
+      const fields=Array.from(controls[name].shell.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),a[href],[tabindex="0"]')).filter(el=>!el.closest('[hidden]')&&el.getClientRects().length>0);
+      fields.push(controls[other].button);
+      const index=fields.indexOf(document.activeElement as HTMLElement),next=index<0?0:(index+(event.shiftKey?-1:1)+fields.length)%fields.length;
+      event.preventDefault();fields[next]?.focus();
     }
   });
   drawers.addEventListener('change', update);

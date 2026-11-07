@@ -8,13 +8,13 @@ export class View {
  navigation=false;dirty=true;scene=new T.Scene(); model=new T.Group(); markers=new T.Group(); selection=new T.Object3D();
  renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,alpha:false});
  ortho=new T.OrthographicCamera(-5,5,5,-5,.01,200);perspective=new T.PerspectiveCamera(38,1,.01,200);camera:T.Camera=this.ortho;
- controls:OrbitControls;transform:TransformControls;mode='Скелет';overlay=false;selected='root'; pose!:Pose;grid:T.GridHelper; onSelect=(id:string)=>{};onTransform=(_v:V,_rot:V)=>{};onStart=()=>{};onEnd=()=>{};
+ controls:OrbitControls;transform:TransformControls;mode='Скелет';overlay=false;selected='root'; pose!:Pose;grid:T.GridHelper;onCameraChange=()=>{}; onSelect=(id:string)=>{};onTransform=(_v:V,_rot:V)=>{};onStart=()=>{};onEnd=()=>{};
  constructor(public host:HTMLElement){
- this.scene.background=new T.Color('#f3f2ed');this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));host.append(this.renderer.domElement);this.scene.add(this.model,this.markers);
+ this.scene.background=new T.Color('#f3f2ed');this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.domElement.setAttribute('aria-label','Рабочая область 3D. Стрелки клавиатуры перемещают камеру.');this.renderer.domElement.setAttribute('role','img');this.renderer.domElement.tabIndex=0;host.append(this.renderer.domElement);this.scene.add(this.model,this.markers);
  this.scene.add(new T.HemisphereLight(0xffffff,0x999587,2.6));const light=new T.DirectionalLight(0xffffff,3);light.position.set(4,8,5);this.scene.add(light);
  this.grid=new T.GridHelper(20,40,0xd4d2c9,0xe4e2da);this.scene.add(this.grid);this.ortho.position.set(8,6,12);this.perspective.position.copy(this.ortho.position);
- this.controls=new OrbitControls(this.camera,this.renderer.domElement);this.controls.target.set(0,3.4,0);this.controls.enableDamping=true;this.controls.update();
- this.controls.addEventListener('change',()=>{this.dirty=true;});
+ this.controls=new OrbitControls(this.camera,this.renderer.domElement);this.controls.target.set(0,3.4,0);this.controls.enableDamping=true;this.controls.listenToKeyEvents(this.renderer.domElement);this.controls.update();
+ this.controls.addEventListener('change',()=>{this.dirty=true;this.onCameraChange();});
  this.transform=new TransformControls(this.camera,this.renderer.domElement);this.transform.setSize(.85);this.scene.add(this.transform.getHelper());
  this.transform.addEventListener('dragging-changed',e=>{this.controls.enabled=!e.value;if(e.value)this.onStart();else this.onEnd();});
  this.transform.addEventListener('change',()=>{this.dirty=true;});
@@ -105,7 +105,28 @@ export class View {
  syncSelection(){if(this.navigation){this.transform.detach();return;}if(!this.pose)return;const p=this.pose,sk=skeleton(p);let pos:T.Vector3;let rotation:V=[0,0,0];const selectedJoint=jointSelection(this.selected);if(selectedJoint){const state=jointState(p,selectedJoint.limb);pos=selectedJoint.kind==='base'?state.start:state.joint;rotation=selectedJoint.kind==='base'?state.rotation:state.forearmRotation;}else if(this.selected in p.limbs){pos=sk.limbs[this.selected as keyof typeof p.limbs].end;rotation=p.limbs[this.selected as keyof typeof p.limbs].rotation;}else{pos=this.selected==='root'?new T.Vector3():this.selected==='pelvis'?sk.hip:this.selected==='chest'?sk.waist.clone().lerp(sk.neck,.5):sk.neck.clone().add(new T.Vector3(0,.65,0).applyQuaternion(sk.cq));rotation=p[this.selected as 'rotation'] as V;if(this.selected==='root')rotation=p.rotation;}
  this.selection.position.copy(pos.clone().applyQuaternion(quat(p.rotation)).add(vec(p.root)));if(selectedJoint)this.selection.quaternion.copy(quat(p.rotation).multiply(quat(rotation)));else this.selection.rotation.set(...rotation.map(n=>n*Math.PI/180) as V);if(this.transform.getMode()==='translate'&&this.selected!=='root'&&!(this.selected in p.limbs)&&selectedJoint?.kind!=='bend')this.transform.detach();else this.transform.attach(this.selection);}
  setProjection(perspective:boolean){this.dirty=true;const old=this.camera as T.PerspectiveCamera;const next=perspective?this.perspective:this.ortho;next.position.copy(old.position);next.quaternion.copy(old.quaternion);this.camera=next;this.controls.object=next;this.transform.camera=next;this.controls.update();}
- angle(name:string){const dirs:Record<string,number[]>={'Спереди':[0,0,14],'Сзади':[0,0,-14],'Слева':[-14,0,0],'Справа':[14,0,0],'Сверху':[0,14,.001],'¾':[9,5,12],'Изометрия':[10,10,10]};const d=dirs[name]||dirs['¾'];this.camera.position.copy(this.controls.target).add(new T.Vector3(...d as V));this.controls.update();}
- fit(){const box=new T.Box3().setFromObject(this.model),center=box.getCenter(new T.Vector3());const radius=Math.max(1,box.getSize(new T.Vector3()).length()/2);this.controls.target.copy(center);this.ortho.zoom=Math.min(4.6,4.6*(this.host.clientWidth/this.host.clientHeight))/(radius*1.15);this.ortho.updateProjectionMatrix();this.angle('¾');if(this.camera===this.perspective){const d=radius/Math.sin(this.perspective.fov*Math.PI/360)*1.15;this.camera.position.sub(center).normalize().multiplyScalar(d).add(center);}this.controls.update();}
- png(){const visible=this.markers.visible;this.markers.visible=false;const helper=this.transform.getHelper(),helperVisible=helper.visible;helper.visible=false;this.renderer.render(this.scene,this.camera);this.renderer.domElement.toBlob(blob=>{if(blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='PoseSketch.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}});this.markers.visible=visible;helper.visible=helperVisible;this.dirty=true;}
+ stopCameraMotion(){const damping=this.controls.enableDamping;this.controls.enableDamping=false;this.controls.update();this.controls.enableDamping=damping;}
+ angle(name:string){this.stopCameraMotion();const dirs:Record<string,number[]>={'Спереди':[0,0,14],'Сзади':[0,0,-14],'Слева':[-14,0,0],'Справа':[14,0,0],'Сверху':[0,14,.001],'¾':[9,5,12],'Изометрия':[10,10,10]};const d=dirs[name]||dirs['¾'];this.camera.position.copy(this.controls.target).add(new T.Vector3(...d as V));this.controls.update();this.camera.updateMatrixWorld(true);}
+ fit(){
+  this.stopCameraMotion();
+  const box=new T.Box3().setFromObject(this.model),center=box.getCenter(new T.Vector3());
+  this.controls.target.copy(center);this.angle('¾');this.camera.updateMatrixWorld(true);
+  const projected=new T.Box3();
+  for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z])projected.expandByPoint(new T.Vector3(x,y,z).applyMatrix4(this.camera.matrixWorldInverse));
+  const size=projected.getSize(new T.Vector3()),padding=1.18;
+  this.ortho.zoom=Math.min((this.ortho.right-this.ortho.left)/(Math.max(.1,size.x)*padding),(this.ortho.top-this.ortho.bottom)/(Math.max(.1,size.y)*padding));
+  this.ortho.updateProjectionMatrix();
+  if(this.camera===this.perspective){
+   const halfV=this.perspective.fov*Math.PI/360,halfH=Math.atan(Math.tan(halfV)*this.perspective.aspect);
+   const distance=(Math.max(size.y/2/Math.tan(halfV),size.x/2/Math.tan(halfH))+size.z/2)*padding;
+   this.camera.position.sub(center).normalize().multiplyScalar(distance).add(center);
+  }
+  this.controls.update();this.dirty=true;
+ }
+ png():Promise<Blob>{
+  const visible=this.markers.visible,helper=this.transform.getHelper(),helperVisible=helper.visible;
+  this.markers.visible=false;helper.visible=false;
+  try{this.renderer.render(this.scene,this.camera);return new Promise((resolve,reject)=>this.renderer.domElement.toBlob(blob=>blob?resolve(blob):reject(new Error('PNG encoding failed')),'image/png'));}
+  finally{this.markers.visible=visible;helper.visible=helperVisible;this.dirty=true;}
+ }
 }

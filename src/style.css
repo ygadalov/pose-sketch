@@ -353,3 +353,66 @@ footer{flex-wrap:wrap;height:auto;min-height:52px;gap:6px;padding:12px 15px;font
 #navigation-hint{position:absolute;left:50%;top:68px;transform:translateX(-50%);z-index:3;max-width:calc(100% - 142px);padding:7px 12px;border:1px solid #d8e1cc;border-radius:5px;background:#fafbf7e8;color:#526743;font-size:12px;text-align:center;pointer-events:none}
 .navigation-only #viewport canvas:active{cursor:grabbing!important}
 @media(min-width:520px) and (max-width:950px) and (max-height:550px){#navigation-hint{top:auto;bottom:65px;padding:3px 8px;font-size:11px}}
+
+/* Audit: readable controls, truthful state and measured space for the camera dock. */
+:root{--control-text:#465a39;--secondary-text:#58694d}
+.brand small,.segmented button,.camera-bar>span,.selected-label,.coordinates input,.coordinates label>span,.tools button,footer b{color:var(--control-text)}
+.x{color:#944b38}.y{color:#466742}.z{color:#3f6482}
+.coordinates label>.x,.axis-key>.x{color:#944b38}
+.coordinates label>.y,.axis-key>.y{color:#466742}
+.coordinates label>.z,.axis-key>.z{color:#3f6482}
+.arrow{color:#526743}
+button:focus-visible,input:focus-visible,select:focus-visible,canvas:focus-visible{outline:2px solid #446b38;outline-offset:2px}
+#help,#close-help{width:44px;height:44px;min-width:44px;min-height:44px}
+.primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;white-space:nowrap}
+.primary svg{flex:none}
+.intro h1{font-size:22px;margin:0 0 10px}
+.intro p{line-height:1.6;margin:0 0 22px}
+.right .muted{line-height:1.6;margin:0 0 20px}
+.selected-label{margin:18px 0}
+.overlay[hidden]{display:none!important}
+.overlay{min-height:40px;gap:7px;color:#526743}
+.overlay input{width:18px;height:18px;margin:0}
+.segmented button{min-height:40px}
+.camera-bar button,.camera-bar select{min-height:44px}
+#viewport{bottom:var(--scene-bottom,126px)}
+.canvas-caption{bottom:calc(var(--scene-bottom,126px) + 16px)}
+.axis-key{bottom:calc(var(--scene-bottom,126px) + 19px)}
+.canvas-caption small{color:#58694d}
+.switch input:focus-visible+span{outline:2px solid #446b38;outline-offset:4px}
+#reset{color:#714f42}
+@media(max-width:850px){
+  .viewport-top{flex-wrap:wrap;gap:4px}
+  .overlay{display:flex;flex-basis:100%;min-height:44px;padding:4px 8px;background:#fafbf7e8;border-radius:4px}
+  .workspace.volume-mode #navigation-hint{top:112px}
+  .header-actions{flex-shrink:0}
+}
+@media(max-width:420px){
+  .save-verb{display:none}
+  .segmented button{font-size:13px;padding:8px}
+  .brand{font-size:20px}
+  .primary{padding:10px}
+}
+@media(min-width:650px) and (max-width:950px) and (max-height:550px){
+  .tools{left:auto;right:60px;top:10px}
+  .workspace.volume-mode #navigation-hint{top:auto}
+}
+@media(prefers-reduced-motion:reduce){button,.panel-toggle,#toast{transition:none}}
+.reach-note[hidden]{display:none}
+.reach-note{font-size:12px;line-height:1.5;padding:10px;border-radius:4px;background:#f7efdc;color:#73552a;margin:14px 0 0}
+@media(min-width:520px) and (max-width:950px) and (max-height:550px){#navigation-hint{display:none}}
+/* Keep the mode status in the display bar; no floating labels over the head. */
+#navigation-hint{position:static;transform:none;display:block;max-width:none;margin:0;align-self:center;padding:5px 8px;white-space:nowrap;pointer-events:none}
+#navigation-hint .status-short{display:none}
+@media(max-width:850px){
+  #navigation-hint .status-long{display:none}
+  #navigation-hint .status-short{display:inline}
+  .segmented button{padding:8px 6px}
+  #navigation-hint{font-size:12px;padding:5px 6px}
+  #viewport{top:var(--scene-top,64px)}
+}
+@media(min-width:520px) and (max-width:950px) and (max-height:550px){
+  #navigation-hint{display:none}
+}
+.viewport-top{flex-wrap:wrap}
+@media(min-width:851px) and (max-width:1150px){#viewport{top:var(--scene-top,64px)}}

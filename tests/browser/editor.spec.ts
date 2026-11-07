@@ -9,7 +9,7 @@ test('3D editor: coordinates, pole, history, modes, views, persistence, JSON and
  await page.locator('#part').selectOption('rightLeg');for(const [axis,value] of [['X','1.2'],['Y','1.5'],['Z','-.8']]){await page.getByLabel(`Положение ${axis}`,{exact:true}).fill(value);await page.getByLabel(`Положение ${axis}`,{exact:true}).press('Tab');}
  await page.locator('#pole').fill('90');await page.locator('#pole').dispatchEvent('change');expect((await getPose(page)).limbs.rightLeg.pole).toBe(90);
  const pose=await getPose(page);await page.locator('#undo').click();expect((await getPose(page)).limbs.rightLeg.pole).toBe(0);await page.locator('#redo').click();expect(await getPose(page)).toEqual(pose);
- await page.getByRole('button',{name:'◒ Объём'}).click();expect(await getPose(page)).toEqual(pose);await page.locator('#overlay').uncheck();await page.getByRole('button',{name:'⌘ Скелет'}).click();expect(await getPose(page)).toEqual(pose);
+ await page.getByRole('button',{name:'Объём'}).click();expect(await getPose(page)).toEqual(pose);await page.locator('#overlay').uncheck();await page.getByRole('button',{name:'Скелет'}).click();expect(await getPose(page)).toEqual(pose);
  for(const name of ['Спереди','Сзади','Слева','Справа','Сверху','¾']){await page.getByRole('button',{name,exact:true}).click();expect(await getPose(page)).toEqual(pose);}
  await page.locator('#projection').selectOption('perspective');await page.locator('#iso').click();
  const exported=page.waitForEvent('download');await page.locator('#export').click();const json=await exported;const path=await json.path();expect(JSON.parse(await fs.readFile(path!,'utf8'))).toEqual(pose);
@@ -22,7 +22,7 @@ test('gizmo dragging changes pose while background drag only changes camera',asy
 
 test('shoulders, elbows and knees are selectable on the figure and directly editable',async({page})=>{
  await page.setViewportSize({width:1440,height:1000});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/');
- await page.getByRole('button',{name:'Спереди',exact:true}).click();await page.waitForTimeout(250);
+ await page.locator('#rotate').click();await page.getByRole('button',{name:'Спереди',exact:true}).click();await page.waitForTimeout(250);
  for(const id of ['leftArm:base','leftArm:bend','rightArm:base','rightArm:bend','leftLeg:bend']){
   const pt=await page.evaluate(id=>(window as any).poseSketch.getMarker(id),id);await page.mouse.click(pt.x,pt.y);await expect(page.locator('#part')).toHaveValue(id);
  }
@@ -34,7 +34,7 @@ test('shoulders, elbows and knees are selectable on the figure and directly edit
  await page.locator('#undo').click();expect((await page.evaluate(()=>(window as any).poseSketch.getJoint('leftArm'))).flex).toBeCloseTo(before.flex);await page.locator('#redo').click();
  // Direct bend handle drag moves the elbow, not just the wrist target.
  const handle=await page.evaluate(()=>(window as any).poseSketch.getHandle());await page.mouse.move(handle.x+45,handle.y);await page.mouse.down();await page.mouse.move(handle.x+75,handle.y,{steps:8});await page.mouse.up();const dragged=await page.evaluate(()=>(window as any).poseSketch.getJoint('leftArm'));expect(dragged.joint).not.toEqual(after.joint);
- const pose=await getPose(page);await page.getByRole('button',{name:'◒ Объём'}).click();expect(await getPose(page)).toEqual(pose);await page.reload();expect(await getPose(page)).toEqual(pose);expect(errors).toEqual([]);
+ const pose=await getPose(page);await page.getByRole('button',{name:'Объём'}).click();expect(await getPose(page)).toEqual(pose);await page.reload();expect(await getPose(page)).toEqual(pose);expect(errors).toEqual([]);
 });
 
 test('each body part keeps its own tool when switching between knee and foot',async({page})=>{
@@ -109,9 +109,9 @@ test('side arrows reclaim width on desktop and in a phone desktop-site viewport'
 });
 
 test('hand tool detaches pose controls and only navigates the camera over the figure',async({page})=>{
- await page.setViewportSize({width:1440,height:1000});await page.goto('/');await page.locator('#part').selectOption('leftArm');await page.locator('#move').click();await page.locator('[data-view="Спереди"]').click();
+ await page.setViewportSize({width:1440,height:1000});await page.goto('/');await page.locator('#part').selectOption('leftArm');await page.locator('#move').click();await page.locator('[data-view="Спереди"]').click();await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
  const pose=await getPose(page),handle=await page.evaluate(()=>(window as any).poseSketch.getHandle()),camera=await page.evaluate(()=>(window as any).poseSketch.getCamera());
- await page.locator('#navigate').click();await expect(page.locator('#navigate')).toHaveAttribute('aria-pressed','true');expect(await page.evaluate(()=>(window as any).poseSketch.hasGizmo())).toBe(false);
+ await page.locator('#navigate').click();await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));await expect(page.locator('#navigate')).toHaveAttribute('aria-pressed','true');expect(await page.evaluate(()=>(window as any).poseSketch.hasGizmo())).toBe(false);
  await page.mouse.move(handle.x+45,handle.y);await page.mouse.down();await page.mouse.move(handle.x+100,handle.y+45,{steps:10});await page.mouse.up();await page.waitForTimeout(250);
  expect(await getPose(page)).toEqual(pose);expect(await page.evaluate(()=>(window as any).poseSketch.getCamera())).not.toEqual(camera);
  const selected=await page.locator('#part').inputValue();const head=await page.evaluate(()=>(window as any).poseSketch.getMarker('head'));await page.mouse.click(head.x,head.y);expect(await page.locator('#part').inputValue()).toBe(selected);

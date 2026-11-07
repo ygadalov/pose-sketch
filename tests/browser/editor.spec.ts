@@ -19,3 +19,20 @@ test('3D editor: coordinates, pole, history, modes, views, persistence, JSON and
 });
 test('narrow screen has no horizontal overflow and editing remains usable',async({page})=>{await page.setViewportSize({width:390,height:844});await page.goto('/');await expect(page.locator('canvas')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);await page.locator('#part').selectOption('leftLeg');await page.getByLabel('Положение Z',{exact:true}).fill('1');await page.getByLabel('Положение Z',{exact:true}).press('Tab');expect((await getPose(page)).limbs.leftLeg.target[2]).toBe(1);await page.screenshot({path:'/workspace/pose-sketch/test-results/mobile.png',fullPage:true});});
 test('gizmo dragging changes pose while background drag only changes camera',async({page})=>{await page.setViewportSize({width:1440,height:1000});await page.goto('/');await page.locator('#part').selectOption('leftArm');await page.getByRole('button',{name:'Спереди',exact:true}).click();await page.waitForTimeout(250);const before=await getPose(page);const h=await page.evaluate(()=>(window as any).poseSketch.getHandle());await page.mouse.move(h.x+45,h.y);await page.mouse.down();await page.mouse.move(h.x+85,h.y,{steps:10});await page.mouse.up();const after=await getPose(page);expect(after.limbs.leftArm.target[0]).not.toBe(before.limbs.leftArm.target[0]);const camera=await page.evaluate(()=>(window as any).poseSketch.getCamera());await page.mouse.move(800,210);await page.mouse.down();await page.mouse.move(900,260,{steps:10});await page.mouse.up();await page.waitForTimeout(400);expect(await getPose(page)).toEqual(after);expect(await page.evaluate(()=>(window as any).poseSketch.getCamera())).not.toEqual(camera);});
+
+test('shoulders, elbows and knees are selectable on the figure and directly editable',async({page})=>{
+ await page.setViewportSize({width:1440,height:1000});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/');
+ await page.getByRole('button',{name:'Спереди',exact:true}).click();await page.waitForTimeout(250);
+ for(const id of ['leftArm:base','leftArm:bend','rightArm:base','rightArm:bend','leftLeg:bend']){
+  const pt=await page.evaluate(id=>(window as any).poseSketch.getMarker(id),id);await page.mouse.click(pt.x,pt.y);await expect(page.locator('#part')).toHaveValue(id);
+ }
+ await page.locator('#part').selectOption('leftArm:base');const old=await getPose(page);
+ const field=page.getByLabel('Вращение плеча Z',{exact:true});await field.fill('65');await field.press('Tab');expect((await getPose(page)).limbs.leftArm.target).not.toEqual(old.limbs.leftArm.target);
+ await page.locator('#part').selectOption('leftArm:bend');const before=await page.evaluate(()=>(window as any).poseSketch.getJoint('leftArm'));
+ await page.getByLabel('Угол сгиба',{exact:true}).fill('100');await page.getByLabel('Угол сгиба',{exact:true}).press('Tab');const after=await page.evaluate(()=>(window as any).poseSketch.getJoint('leftArm'));
+ expect(after.flex).toBeCloseTo(100);for(let i=0;i<3;i++)expect(after.joint[i]).toBeCloseTo(before.joint[i]);expect(after.end).not.toEqual(before.end);
+ await page.locator('#undo').click();expect((await page.evaluate(()=>(window as any).poseSketch.getJoint('leftArm'))).flex).toBeCloseTo(before.flex);await page.locator('#redo').click();
+ // Direct bend handle drag moves the elbow, not just the wrist target.
+ const handle=await page.evaluate(()=>(window as any).poseSketch.getHandle());await page.mouse.move(handle.x+45,handle.y);await page.mouse.down();await page.mouse.move(handle.x+75,handle.y,{steps:8});await page.mouse.up();const dragged=await page.evaluate(()=>(window as any).poseSketch.getJoint('leftArm'));expect(dragged.joint).not.toEqual(after.joint);
+ const pose=await getPose(page);await page.getByRole('button',{name:'◒ Объём'}).click();expect(await getPose(page)).toEqual(pose);await page.reload();expect(await getPose(page)).toEqual(pose);expect(errors).toEqual([]);
+});

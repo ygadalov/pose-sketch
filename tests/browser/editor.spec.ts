@@ -17,7 +17,7 @@ test('3D editor: coordinates, pole, history, modes, views, persistence, JSON and
  const pngWait=page.waitForEvent('download');await page.locator('#png').click();const png=await pngWait;await png.saveAs('test-results/export.png');const bytes=await fs.readFile((await png.path())!);expect(bytes.subarray(1,4).toString()).toBe('PNG');expect(bytes.length).toBeGreaterThan(10000);
  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'/workspace/pose-sketch/test-results/desktop.png'});expect(errors).toEqual([]);
 });
-test('narrow screen has no horizontal overflow and editing remains usable',async({page})=>{await page.setViewportSize({width:390,height:844});await page.goto('/');await expect(page.locator('canvas')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);expect(await page.locator('#part').evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);await page.locator('#part').selectOption('leftLeg');await page.getByLabel('Положение Z',{exact:true}).fill('1');await page.getByLabel('Положение Z',{exact:true}).press('Tab');expect((await getPose(page)).limbs.leftLeg.target[2]).toBe(1);await page.screenshot({path:'/workspace/pose-sketch/test-results/mobile.png',fullPage:true});});
+test('narrow screen has no horizontal overflow and editing remains usable',async({page})=>{await page.setViewportSize({width:390,height:844});await page.goto('/');await expect(page.locator('canvas')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);expect(await page.locator('#part').evaluate(el=>parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);await page.getByRole('button',{name:'Показать редактор поз',exact:true}).click();await page.locator('#part').selectOption('leftLeg');await page.getByLabel('Положение Z',{exact:true}).fill('1');await page.getByLabel('Положение Z',{exact:true}).press('Tab');expect((await getPose(page)).limbs.leftLeg.target[2]).toBe(1);await page.screenshot({path:'/workspace/pose-sketch/test-results/mobile.png',fullPage:true});});
 test('gizmo dragging changes pose while background drag only changes camera',async({page})=>{await page.setViewportSize({width:1440,height:1000});await page.goto('/');await page.locator('#part').selectOption('leftArm');await page.locator('#move').click();await page.getByRole('button',{name:'Спереди',exact:true}).click();await page.waitForTimeout(250);const before=await getPose(page);const h=await page.evaluate(()=>(window as any).poseSketch.getHandle());await page.mouse.move(h.x+45,h.y);await page.mouse.down();await page.mouse.move(h.x+85,h.y,{steps:10});await page.mouse.up();const after=await getPose(page);expect(after.limbs.leftArm.target[0]).not.toBe(before.limbs.leftArm.target[0]);const camera=await page.evaluate(()=>(window as any).poseSketch.getCamera());await page.mouse.move(800,210);await page.mouse.down();await page.mouse.move(900,260,{steps:10});await page.mouse.up();await page.waitForTimeout(400);expect(await getPose(page)).toEqual(after);expect(await page.evaluate(()=>(window as any).poseSketch.getCamera())).not.toEqual(camera);});
 
 test('shoulders, elbows and knees are selectable on the figure and directly editable',async({page})=>{
@@ -61,31 +61,49 @@ test('anatomical volume, skeleton and overlay share pose and camera in complex p
  expect(errors).toEqual([]);
 });
 
-test('phone panels collapse independently, preserve the pose and restore after reload',async({browser})=>{
+test('edge arrows open and close the editor on touch screens without changing pose or camera',async({browser})=>{
  const context=await browser.newContext({baseURL:'http://127.0.0.1:5173',viewport:{width:390,height:844},hasTouch:true,isMobile:true});
  try{
-  const page=await context.newPage();await page.goto('/');await page.locator('[data-preset="Приседание"]').tap();
-  const pose=await getPose(page),camera=await page.evaluate(()=>(window as any).poseSketch.getCamera());
-  const workshop=page.locator('#workshop-panel'),editor=page.locator('#editor-panel');
-  await expect(workshop).toBeVisible();await expect(editor).toBeVisible();
-  await page.getByRole('button',{name:'Скрыть редактор поз',exact:true}).tap();await expect(editor).toBeHidden();await expect(workshop).toBeVisible();
-  await page.getByRole('button',{name:'Скрыть мастерскую',exact:true}).tap();await expect(workshop).toBeHidden();await expect(editor).toBeHidden();
-  await expect(page.locator('#toggle-workshop')).toHaveAttribute('aria-expanded','false');await expect(page.locator('#toggle-editor')).toHaveAttribute('aria-expanded','false');
-  await expect(page.locator('footer')).toBeHidden();expect(await getPose(page)).toEqual(pose);expect(await page.evaluate(()=>(window as any).poseSketch.getCamera())).toEqual(camera);
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
-  expect(await page.evaluate(()=>document.documentElement.scrollHeight)).toBeLessThanOrEqual(844);
-  const scene=await page.locator('.workspace').boundingBox();expect(scene!.y+scene!.height).toBeLessThanOrEqual(844);expect(scene!.height).toBeGreaterThan(680);
+  const page=await context.newPage();await page.goto('/');const workshop=page.locator('#workshop-panel'),editor=page.locator('#editor-panel');
+  await expect(workshop).toBeHidden();await expect(editor).toBeHidden();await expect(page.locator('.mobile-panel-bar')).toHaveCount(0);
+  await expect(page.locator('#toggle-workshop .panel-arrow')).toHaveText('>');await expect(page.locator('#toggle-editor .panel-arrow')).toHaveText('<');
+  await page.getByRole('button',{name:'Показать мастерскую',exact:true}).tap();await expect(workshop).toBeVisible();await page.locator('[data-preset="Приседание"]').tap();
+  const camera=await page.evaluate(()=>(window as any).poseSketch.getCamera());await page.getByRole('button',{name:'Скрыть мастерскую',exact:true}).tap();
+  await page.getByRole('button',{name:'Показать редактор поз',exact:true}).tap();await expect(editor).toBeVisible();await expect(workshop).toBeHidden();
+  await page.locator('#part').selectOption('leftLeg');await page.getByLabel('Вращение Z',{exact:true}).fill('25');await page.getByLabel('Вращение Z',{exact:true}).press('Tab');const pose=await getPose(page);
+  // Close from the editor itself, after scrolling its fields; its arrow stays reachable.
+  await page.locator('#editor-panel').evaluate(el=>el.scrollTop=el.scrollHeight);
+  await page.getByRole('button',{name:'Скрыть редактор поз',exact:true}).tap();await expect(editor).toBeHidden();
+  await expect(page.locator('#toggle-editor')).toHaveAttribute('aria-expanded','false');await expect(page.locator('#panel-backdrop')).toBeHidden();
+  expect(await getPose(page)).toEqual(pose);expect(await page.evaluate(()=>(window as any).poseSketch.getCamera())).toEqual(camera);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);expect(await page.evaluate(()=>document.documentElement.scrollHeight)).toBeLessThanOrEqual(844);
   await page.screenshot({path:'test-results/mobile-workspace-only.png'});
   await page.reload();await expect(workshop).toBeHidden();await expect(editor).toBeHidden();expect(await getPose(page)).toEqual(pose);
-  // Panels can be brought back independently without replacing the selected pose.
-  await page.getByRole('button',{name:'Показать редактор поз',exact:true}).tap();await expect(editor).toBeVisible();await expect(workshop).toBeHidden();
-  await page.getByRole('button',{name:'Показать мастерскую',exact:true}).tap();await expect(workshop).toBeVisible();expect(await getPose(page)).toEqual(pose);
-  await page.getByRole('button',{name:'Скрыть редактор поз',exact:true}).tap();await page.getByRole('button',{name:'Скрыть мастерскую',exact:true}).tap();
-  // Phone preferences must never hide the desktop's panels.
-  await page.setViewportSize({width:1440,height:1000});await expect(workshop).toBeVisible();await expect(editor).toBeVisible();await expect(page.locator('.mobile-panel-bar')).toBeHidden();
-  // Turning the same phone sideways still exposes the restore buttons and scene.
-  await page.setViewportSize({width:844,height:390});await expect(workshop).toBeHidden();await expect(editor).toBeHidden();await expect(page.getByRole('button',{name:'Показать редактор поз',exact:true})).toBeVisible();
+  // Opening the other drawer closes the first, so neither close control can be covered.
+  await page.getByRole('button',{name:'Показать редактор поз',exact:true}).tap();await page.getByRole('button',{name:'Показать мастерскую',exact:true}).tap();await expect(workshop).toBeVisible();await expect(editor).toBeHidden();
+  await page.locator('#panel-backdrop').tap({position:{x:370,y:300}});await expect(workshop).toBeHidden();
+  await page.setViewportSize({width:844,height:390});await page.getByRole('button',{name:'Показать редактор поз',exact:true}).tap();await expect(editor).toBeVisible();await page.getByRole('button',{name:'Скрыть редактор поз',exact:true}).tap();await expect(editor).toBeHidden();
   await expect(page.locator('canvas')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(844);expect(await page.evaluate(()=>document.documentElement.scrollHeight)).toBeLessThanOrEqual(390);
   await page.screenshot({path:'test-results/mobile-workspace-landscape.png'});
+ }finally{await context.close();}
+});
+
+test('side arrows reclaim width on desktop and in a phone desktop-site viewport',async({browser})=>{
+ const context=await browser.newContext({baseURL:'http://127.0.0.1:5173',viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+ try{
+  const page=await context.newPage();await page.goto('/');
+  // Emulate the wide CSS viewport used by Request Desktop Site on a phone.
+  await page.evaluate(()=>document.querySelector('meta[name="viewport"]')!.setAttribute('content','width=980'));
+  await expect.poll(()=>page.evaluate(()=>window.innerWidth)).toBe(980);
+  for(const id of ['workshop','editor']){const button=page.locator(`#toggle-${id}`);if(await button.getAttribute('aria-expanded')==='false')await button.tap();}
+  await expect(page.locator('#workshop-panel')).toBeVisible();await expect(page.locator('#editor-panel')).toBeVisible();
+  const initial=(await page.locator('.workspace').boundingBox())!.width,pose=await getPose(page),camera=await page.evaluate(()=>(window as any).poseSketch.getCamera());
+  await page.getByRole('button',{name:'Скрыть редактор поз',exact:true}).tap();await expect(page.locator('#editor-panel')).toBeHidden();const one=(await page.locator('.workspace').boundingBox())!.width;expect(one).toBeGreaterThan(initial+200);
+  await page.getByRole('button',{name:'Скрыть мастерскую',exact:true}).tap();const both=(await page.locator('.workspace').boundingBox())!.width;expect(both).toBeGreaterThan(one+150);expect(both).toBeGreaterThan(880);
+  expect(await getPose(page)).toEqual(pose);expect(await page.evaluate(()=>(window as any).poseSketch.getCamera())).toEqual(camera);
+  await page.screenshot({path:'test-results/phone-desktop-site-collapsed.png'});
+  await page.reload();await expect(page.locator('#workshop-panel')).toBeHidden();await expect(page.locator('#editor-panel')).toBeHidden();
+  await page.getByRole('button',{name:'Показать редактор поз',exact:true}).tap();await expect(page.locator('#editor-panel')).toBeVisible();
+  await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'Скрыть редактор поз',exact:true}).tap();await expect(page.locator('#editor-panel')).toBeHidden();await page.getByRole('button',{name:'Показать мастерскую',exact:true}).tap();await expect(page.locator('#workshop-panel')).toBeVisible();
  }finally{await context.close();}
 });

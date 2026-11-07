@@ -287,33 +287,63 @@ button{line-height:1.35}
 footer{flex-wrap:wrap;height:auto;min-height:52px;gap:6px;padding:12px 15px;font-size:11px}
 }
 
-/* Phone panels can be collapsed without changing pose, camera or desktop layout. */
-.mobile-panel-bar{display:none}
-aside[hidden]{display:none!important}
-@media(max-width:700px),(min-width:520px) and (max-width:950px) and (max-height:550px){
-  :root{--mobile-header-height:64px;--panel-bar-height:60px}
-  header{height:var(--mobile-header-height)}
-  .mobile-panel-bar{display:flex;position:sticky;top:0;z-index:25;gap:8px;height:var(--panel-bar-height);padding:8px 12px;background:#fafbf7;border-bottom:1px solid var(--line)}
-  .mobile-panel-bar button{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:1;min-width:0;min-height:44px;padding:8px 12px;border-radius:5px;font-size:14px;color:#526743;background:#fafbf7}
-  .mobile-panel-bar button[aria-expanded="true"]{background:#eaf0e2;border-color:#d8e1cc}
-  .mobile-panel-bar button[aria-expanded="true"] svg{transform:rotate(180deg)}
-  .mobile-panel-bar svg{flex:none;transition:transform .15s}
-  main{display:flex;flex-direction:column;height:auto;min-height:0}
-  .right{border-left:0;border-top:1px solid var(--line)}
-  .mobile-workspace-only main{height:calc(100dvh - var(--mobile-header-height) - var(--panel-bar-height));min-height:480px}
-  .mobile-workspace-only .workspace{height:100%;min-height:0;flex:1}
-  .mobile-workspace-only footer{display:none}
+/* Edge controls remain available on phones, desktops and desktop-site mode. */
+:root{--app-header-height:84px;--workshop-open-size:260px;--editor-open-size:320px}
+.studio-layout{display:grid;position:relative;grid-template-columns:var(--workshop-size,var(--workshop-open-size)) minmax(0,1fr) var(--editor-size,var(--editor-open-size));height:calc(100dvh - var(--app-header-height) - 42px);min-height:520px}
+.studio-layout.workshop-collapsed{--workshop-size:44px}
+.studio-layout.editor-collapsed{--editor-size:44px}
+.studio-layout>.workspace{height:auto;min-height:0}
+.panel-shell{display:flex;flex-direction:column;min-width:0;min-height:0;background:#fafbf7;overflow:hidden}
+.workshop-shell{border-right:1px solid var(--line)}
+.editor-shell{border-left:1px solid var(--line)}
+.panel-header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;height:52px;padding:4px 12px;border-bottom:1px solid var(--line)}
+.panel-name{font-size:14px;font-weight:500;color:#526743}
+.panel-toggle{display:flex;align-items:center;justify-content:center;flex:none;width:44px;height:44px;min-height:44px;padding:0;border-radius:5px;background:#f2f5eb;color:#526743;font-size:22px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.panel-shell[data-collapsed="true"] .panel-name{display:none}
+.panel-shell[data-collapsed="true"] .panel-header{padding:4px 0;justify-content:center}
+.panel-shell>aside{flex:1;min-height:0;overflow:auto;border:0}
+.panel-shell>aside[hidden],.panel-backdrop[hidden]{display:none!important}
+.panel-backdrop{display:none}
+.workspace-only .studio-layout{height:calc(100dvh - var(--app-header-height));min-height:0}
+.workspace-only footer{display:none}
+@media(min-width:1600px){:root{--workshop-open-size:280px;--editor-open-size:340px}}
+@media(max-width:1150px){:root{--workshop-open-size:220px;--editor-open-size:300px}}
+@media(max-width:850px){
+  :root{--app-header-height:68px}
+  .studio-layout{grid-template-columns:minmax(0,1fr);height:calc(100dvh - var(--app-header-height));min-height:480px}
+  footer{display:none}
+  .panel-shell{position:absolute;top:0;bottom:0;z-index:20;box-shadow:0 5px 24px #25382326;max-width:calc(100% - 56px)}
+  .workshop-shell{left:0;width:320px}
+  .editor-shell{right:0;width:340px}
+  .panel-shell[data-collapsed="true"]{width:44px;background:transparent;border:0;box-shadow:none;pointer-events:none}
+  .panel-shell[data-collapsed="true"] .panel-header{height:64px;border:0;padding:12px 0 8px;align-items:flex-start}
+  .panel-toggle{pointer-events:auto}
+  .panel-shell .left{display:flex;flex-direction:column;padding:20px}
+  .panel-shell .intro{display:block}
+  .panel-shell .section-label{display:flex}
+  .panel-shell .left-bottom{display:none}
+  .panel-shell #presets{display:block;overflow:visible}
+  .panel-shell .preset{width:100%;min-width:0;margin:0 0 8px;padding:8px 5px}
+  .panel-shell .thumbnail{width:43px;height:68px}
+  .panel-shell .preset small,.panel-shell .arrow{display:block}
+  .panel-shell .right{padding:20px}
+  .panel-shell .right .inspector-heading,.panel-shell .right h2{display:none}
+  .panel-shell .right .muted{font-size:12px;margin-bottom:16px}
+  .panel-backdrop{display:block;position:absolute;inset:0;z-index:15;border:0;padding:0;background:#2538234d}
+  .panel-backdrop:hover{background:#2538234d}
+  .viewport-top{left:60px;right:60px;top:12px}
+  .tools{top:82px;left:12px}
 }
+@media(max-width:700px){:root{--app-header-height:64px}}
 @media(min-width:520px) and (max-width:950px) and (max-height:550px){
-  :root{--mobile-header-height:56px;--panel-bar-height:60px}
-  .workspace{height:500px;min-height:500px}
-  .mobile-workspace-only main{min-height:0}
-  .mobile-workspace-only .viewport-top{top:10px;left:12px;right:auto}
-  .mobile-workspace-only .overlay{display:none}
-  .mobile-workspace-only .tools{top:10px;left:auto;right:12px;flex-direction:row;padding:4px;gap:2px}
-  .mobile-workspace-only .tools button{width:36px;height:36px}
-  .mobile-workspace-only .tools hr{width:1px;height:24px;border:0;border-left:1px solid var(--line);margin:6px 3px}
-  .mobile-workspace-only #viewport{bottom:94px}
-  .mobile-workspace-only .camera-bar{bottom:6px}
-  .mobile-workspace-only .canvas-help,.mobile-workspace-only .canvas-caption,.mobile-workspace-only .axis-key{display:none}
+  :root{--app-header-height:56px}
+  header{height:var(--app-header-height)}
+  .studio-layout{min-height:0}
+  .viewport-top{top:10px}
+  .tools{top:66px;left:12px;flex-direction:row;padding:4px;gap:2px}
+  .tools button{width:36px;height:36px}
+  .tools hr{width:1px;height:24px;border:0;border-left:1px solid var(--line);margin:6px 3px}
+  #viewport{bottom:94px}
+  .camera-bar{bottom:6px}
+  .canvas-help,.canvas-caption,.axis-key{display:none}
 }

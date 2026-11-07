@@ -347,3 +347,9 @@ footer{flex-wrap:wrap;height:auto;min-height:52px;gap:6px;padding:12px 15px;font
   .camera-bar{bottom:6px}
   .canvas-help,.canvas-caption,.axis-key{display:none}
 }
+
+.tools button{display:flex;align-items:center;justify-content:center}
+#navigation-hint[hidden]{display:none}
+#navigation-hint{position:absolute;left:50%;top:68px;transform:translateX(-50%);z-index:3;max-width:calc(100% - 142px);padding:7px 12px;border:1px solid #d8e1cc;border-radius:5px;background:#fafbf7e8;color:#526743;font-size:12px;text-align:center;pointer-events:none}
+.navigation-only #viewport canvas:active{cursor:grabbing!important}
+@media(min-width:520px) and (max-width:950px) and (max-height:550px){#navigation-hint{top:auto;bottom:65px;padding:3px 8px;font-size:11px}}

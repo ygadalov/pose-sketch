@@ -3,9 +3,9 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {TransformControls} from 'three/addons/controls/TransformControls.js';
 import {skeleton,limbNames,quat,vec,type Pose,type V} from './model';
 import {jointSelection, jointState} from './joints';
-import {anatomy,footGeometry,toeShapes,handGeometry,torsoGeometry,segmentGeometry,limbGeometry} from './anatomy';
+import {anatomy,footGeometry,toeShapes,handGeometry,torsoGeometry,segmentGeometry,limbGeometry,headGeometry} from './anatomy';
 export class View {
- dirty=true;scene=new T.Scene(); model=new T.Group(); markers=new T.Group(); selection=new T.Object3D();
+ navigation=false;dirty=true;scene=new T.Scene(); model=new T.Group(); markers=new T.Group(); selection=new T.Object3D();
  renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,alpha:false});
  ortho=new T.OrthographicCamera(-5,5,5,-5,.01,200);perspective=new T.PerspectiveCamera(38,1,.01,200);camera:T.Camera=this.ortho;
  controls:OrbitControls;transform:TransformControls;mode='Скелет';overlay=false;selected='root'; pose!:Pose;grid:T.GridHelper; onSelect=(id:string)=>{};onTransform=(_v:V,_rot:V)=>{};onStart=()=>{};onEnd=()=>{};
@@ -21,7 +21,7 @@ export class View {
  this.transform.addEventListener('objectChange',()=>{this.onTransform(this.selection.position.toArray() as V,this.selection.rotation.toArray().slice(0,3).map(n=>Number(n)*180/Math.PI) as V);});
  this.scene.add(this.selection);
  let down={x:0,y:0};this.renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};});
- this.renderer.domElement.addEventListener('pointerup',e=>{if(Math.hypot(e.clientX-down.x,e.clientY-down.y)>5||this.transform.axis)return;const rect=this.renderer.domElement.getBoundingClientRect();const ray=new T.Raycaster();ray.setFromCamera(new T.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),this.camera);const hit=ray.intersectObjects(this.markers.children).find(h=>h.object.userData.id);if(hit)this.onSelect(hit.object.userData.id);});
+ this.renderer.domElement.addEventListener('pointerup',e=>{if(this.navigation)return;if(Math.hypot(e.clientX-down.x,e.clientY-down.y)>5||this.transform.axis)return;const rect=this.renderer.domElement.getBoundingClientRect();const ray=new T.Raycaster();ray.setFromCamera(new T.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),this.camera);const hit=ray.intersectObjects(this.markers.children).find(h=>h.object.userData.id);if(hit)this.onSelect(hit.object.userData.id);});
  new ResizeObserver(()=>this.resize()).observe(host);this.resize();this.renderer.setAnimationLoop(()=>{const changed=this.controls.update();if(changed||this.dirty||this.transform.dragging){for(const marker of this.markers.children)if(marker.userData.billboard)marker.quaternion.copy(this.camera.quaternion);this.renderer.render(this.scene,this.camera);this.dirty=false;}});
  }
  resize(){this.dirty=true;const w=this.host.clientWidth,h=this.host.clientHeight;if(!h)return;this.renderer.setSize(w,h);const aspect=w/h;this.ortho.left=-4.6*aspect;this.ortho.right=4.6*aspect;this.ortho.top=4.6;this.ortho.bottom=-4.6;this.ortho.updateProjectionMatrix();this.perspective.aspect=aspect;this.perspective.updateProjectionMatrix();}
@@ -69,11 +69,13 @@ export class View {
   const headPos=sk.neck.clone().add(new T.Vector3(0,.65,0).applyQuaternion(sk.cq));
   const headQ=sk.cq.clone().multiply(quat(p.head));
   line(sk.neck,headPos.clone().add(new T.Vector3(0,-.36,0).applyQuaternion(headQ)));
-  const head=this.ellipsoid(world(headPos),[.3655,.4945,.3526],rootQ.clone().multiply(headQ),volume?anatomy.clay:0xf5f4ef,opacity);
-  if(!volume)this.outlined(head);
-  // A small nose makes front/back readable without facial detail.
-  const nose=this.ellipsoid(world(new T.Vector3(0,-.025,.345).applyQuaternion(headQ).add(headPos)),[.055,.075,.09],rootQ.clone().multiply(headQ),volume?anatomy.clay:0x52584e,opacity);
-  nose.userData.anatomy='nose';
+  if(volume){
+   const head=this.mesh(headGeometry(),anatomy.clay,this.model,opacity);head.position.copy(world(headPos));head.quaternion.copy(rootQ.clone().multiply(headQ));head.userData.anatomy='head';
+   for(const side of [-1,1])this.ellipsoid(world(new T.Vector3(side*.326,-.035,-.025).applyQuaternion(headQ).add(headPos)),[.055,.105,.045],rootQ.clone().multiply(headQ),anatomy.clay,opacity);
+  }else{
+   const head=this.ellipsoid(world(headPos),[.3655,.4945,.3526],rootQ.clone().multiply(headQ),0xf5f4ef);this.outlined(head);
+   this.ellipsoid(world(new T.Vector3(0,-.025,.345).applyQuaternion(headQ).add(headPos)),[.055,.075,.09],rootQ.clone().multiply(headQ),0x52584e);
+  }
   if(volume){
    const torso=this.mesh(torsoGeometry(p),anatomy.clay,this.model,opacity);torso.position.copy(vec(p.root));torso.quaternion.copy(rootQ);torso.userData.anatomy='torso';
    const neckBottom=sk.neck.clone().add(new T.Vector3(0,-.07,0).applyQuaternion(sk.cq));
@@ -94,10 +96,16 @@ export class View {
   if(showSkeleton)this.ball(world(sk.hip),.10,0xbb4938);
   marker(sk.hip,'pelvis');marker(sk.waist.clone().lerp(sk.neck,.5),'chest');marker(headPos,'head');marker(new T.Vector3(0,0,0),'root');this.syncSelection();
  }
- syncSelection(){if(!this.pose)return;const p=this.pose,sk=skeleton(p);let pos:T.Vector3;let rotation:V=[0,0,0];const selectedJoint=jointSelection(this.selected);if(selectedJoint){const state=jointState(p,selectedJoint.limb);pos=selectedJoint.kind==='base'?state.start:state.joint;rotation=selectedJoint.kind==='base'?state.rotation:state.forearmRotation;}else if(this.selected in p.limbs){pos=sk.limbs[this.selected as keyof typeof p.limbs].end;rotation=p.limbs[this.selected as keyof typeof p.limbs].rotation;}else{pos=this.selected==='root'?new T.Vector3():this.selected==='pelvis'?sk.hip:this.selected==='chest'?sk.waist.clone().lerp(sk.neck,.5):sk.neck.clone().add(new T.Vector3(0,.65,0).applyQuaternion(sk.cq));rotation=p[this.selected as 'rotation'] as V;if(this.selected==='root')rotation=p.rotation;}
+ setNavigation(enabled:boolean){
+  if(this.transform.dragging)this.transform.pointerUp(null);
+  this.navigation=enabled;this.transform.enabled=!enabled;this.controls.enabled=true;this.markers.visible=!enabled;
+  this.renderer.domElement.style.cursor=enabled?'grab':'default';
+  if(enabled)this.transform.detach();else this.syncSelection();this.dirty=true;
+ }
+ syncSelection(){if(this.navigation){this.transform.detach();return;}if(!this.pose)return;const p=this.pose,sk=skeleton(p);let pos:T.Vector3;let rotation:V=[0,0,0];const selectedJoint=jointSelection(this.selected);if(selectedJoint){const state=jointState(p,selectedJoint.limb);pos=selectedJoint.kind==='base'?state.start:state.joint;rotation=selectedJoint.kind==='base'?state.rotation:state.forearmRotation;}else if(this.selected in p.limbs){pos=sk.limbs[this.selected as keyof typeof p.limbs].end;rotation=p.limbs[this.selected as keyof typeof p.limbs].rotation;}else{pos=this.selected==='root'?new T.Vector3():this.selected==='pelvis'?sk.hip:this.selected==='chest'?sk.waist.clone().lerp(sk.neck,.5):sk.neck.clone().add(new T.Vector3(0,.65,0).applyQuaternion(sk.cq));rotation=p[this.selected as 'rotation'] as V;if(this.selected==='root')rotation=p.rotation;}
  this.selection.position.copy(pos.clone().applyQuaternion(quat(p.rotation)).add(vec(p.root)));if(selectedJoint)this.selection.quaternion.copy(quat(p.rotation).multiply(quat(rotation)));else this.selection.rotation.set(...rotation.map(n=>n*Math.PI/180) as V);if(this.transform.getMode()==='translate'&&this.selected!=='root'&&!(this.selected in p.limbs)&&selectedJoint?.kind!=='bend')this.transform.detach();else this.transform.attach(this.selection);}
  setProjection(perspective:boolean){this.dirty=true;const old=this.camera as T.PerspectiveCamera;const next=perspective?this.perspective:this.ortho;next.position.copy(old.position);next.quaternion.copy(old.quaternion);this.camera=next;this.controls.object=next;this.transform.camera=next;this.controls.update();}
  angle(name:string){const dirs:Record<string,number[]>={'Спереди':[0,0,14],'Сзади':[0,0,-14],'Слева':[-14,0,0],'Справа':[14,0,0],'Сверху':[0,14,.001],'¾':[9,5,12],'Изометрия':[10,10,10]};const d=dirs[name]||dirs['¾'];this.camera.position.copy(this.controls.target).add(new T.Vector3(...d as V));this.controls.update();}
  fit(){const box=new T.Box3().setFromObject(this.model),center=box.getCenter(new T.Vector3());const radius=Math.max(1,box.getSize(new T.Vector3()).length()/2);this.controls.target.copy(center);this.ortho.zoom=Math.min(4.6,4.6*(this.host.clientWidth/this.host.clientHeight))/(radius*1.15);this.ortho.updateProjectionMatrix();this.angle('¾');if(this.camera===this.perspective){const d=radius/Math.sin(this.perspective.fov*Math.PI/360)*1.15;this.camera.position.sub(center).normalize().multiplyScalar(d).add(center);}this.controls.update();}
- png(){const visible=this.markers.visible;this.markers.visible=false;const helper=this.transform.getHelper();helper.visible=false;this.renderer.render(this.scene,this.camera);this.renderer.domElement.toBlob(blob=>{if(blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='PoseSketch.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}});this.markers.visible=visible;helper.visible=true;this.dirty=true;}
+ png(){const visible=this.markers.visible;this.markers.visible=false;const helper=this.transform.getHelper(),helperVisible=helper.visible;helper.visible=false;this.renderer.render(this.scene,this.camera);this.renderer.domElement.toBlob(blob=>{if(blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='PoseSketch.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}});this.markers.visible=visible;helper.visible=helperVisible;this.dirty=true;}
 }

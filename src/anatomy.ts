@@ -133,3 +133,36 @@ export function limbGeometry(start:T.Vector3,joint:T.Vector3,end:T.Vector3,limb:
   }
   return ringsGeometry(rings);
 }
+
+/** Neutral sculpted head: cranium, facial plane, jaw and chin; +Z faces forward. */
+export function headGeometry():T.BufferGeometry {
+  // y, half-width, front, back. The lower face narrows into a projecting chin.
+  const profile=[[-.47,.025,.13,.035],[-.435,.115,.225,-.095],[-.35,.225,.27,-.20],[-.23,.275,.245,-.29],[-.10,.31,.27,-.345],[.035,.325,.255,-.365],[.15,.325,.29,-.37],[.28,.305,.27,-.35],[.40,.245,.20,-.28],[.475,.135,.075,-.155],[.505,.012,-.035,-.055]];
+  const sample=(y:number,k:number)=>{
+    let i=0;while(i<profile.length-2&&y>profile[i+1][0])i++;
+    const a=profile[i],b=profile[i+1],prev=profile[Math.max(0,i-1)],next=profile[Math.min(profile.length-1,i+2)];
+    const span=b[0]-a[0],u=T.MathUtils.clamp((y-a[0])/span,0,1),u2=u*u,u3=u2*u;
+    const m0=(b[k]-prev[k])/(b[0]-prev[0]),m1=(next[k]-a[k])/(next[0]-a[0]);
+    return (2*u3-3*u2+1)*a[k]+(u3-2*u2+u)*span*m0+(-2*u3+3*u2)*b[k]+(u3-u2)*span*m1;
+  };
+  const gaussian=(x:number,y:number,cx:number,cy:number,rx:number,ry:number)=>Math.exp(-Math.pow((x-cx)/rx,2)-Math.pow((y-cy)/ry,2));
+  const rings:T.Vector3[][]=[];
+  for(let j=0;j<=64;j++){
+    const y=T.MathUtils.lerp(profile[0][0],profile[profile.length-1][0],j/64),width=sample(y,1),front=sample(y,2),back=sample(y,3),center=(front+back)/2;
+    rings.push(Array.from({length:64},(_,i)=>{
+      const angle=i/64*Math.PI*2,s=Math.sin(angle),x=width*Math.cos(angle);
+      let z=center+(s>=0?front-center:center-back)*Math.sign(s)*Math.pow(Math.abs(s),s>=0?.65:1);
+      if(s>0){
+        const bridge=.05*gaussian(x,y,0,.005,.045,.15),tip=.105*gaussian(x,y,0,-.12,.062,.065);
+        const wings=.025*(gaussian(x,y,-.055,-.145,.035,.03)+gaussian(x,y,.055,-.145,.035,.03));
+        const brow=.023*(gaussian(x,y,-.12,.09,.105,.035)+gaussian(x,y,.12,.09,.105,.035));
+        const eyes=-.035*(gaussian(x,y,-.13,.025,.075,.035)+gaussian(x,y,.13,.025,.075,.035));
+        const cheeks=.025*(gaussian(x,y,-.20,-.10,.075,.075)+gaussian(x,y,.20,-.10,.075,.075));
+        const lips=.018*gaussian(x,y,0,-.255,.11,.04)-.010*gaussian(x,y,0,-.263,.09,.009);
+        z+=(bridge+tip+wings+brow+eyes+cheeks+lips)*Math.pow(s,4);
+      }
+      return new T.Vector3(x,y,z);
+    }));
+  }
+  return ringsGeometry(rings);
+}

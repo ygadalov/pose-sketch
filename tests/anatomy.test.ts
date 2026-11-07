@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Vector3,type BufferGeometry} from 'three';
-import {footGeometry,segmentGeometry,torsoGeometry,limbProfiles,limbGeometry} from '../src/anatomy';
+import {footGeometry,segmentGeometry,torsoGeometry,limbProfiles,limbGeometry,headGeometry} from '../src/anatomy';
 import {preset,skeleton,limbNames} from '../src/model';
 
 function validClosedSurface(geometry:BufferGeometry){
@@ -22,10 +22,19 @@ function validClosedSurface(geometry:BufferGeometry){
  geometry.dispose();
 }
 test('contoured feet, torso and limb surfaces stay closed and finite in every starter pose',()=>{
- validClosedSurface(footGeometry(-1));validClosedSurface(footGeometry(1));
+ validClosedSurface(headGeometry());validClosedSurface(footGeometry(-1));validClosedSurface(footGeometry(1));
  for(const name of ['Исходная','Приседание','Скейтбордист','Прыжок','Скручивание']){
   const p=preset(name),before=JSON.stringify(p),s=skeleton(p);validClosedSurface(torsoGeometry(p));
   for(const limb of limbNames){const l=s.limbs[limb],[a,b]=limbProfiles(limb);validClosedSurface(segmentGeometry(l.start,l.joint,a));validClosedSurface(segmentGeometry(l.joint,l.end,b));validClosedSurface(limbGeometry(l.start,l.joint,l.end,limb));}
   assert.equal(JSON.stringify(p),before,'Rendering must not change the pose');
  }
+});
+
+test('volume head has a jaw narrower than the cranium and an integrated projecting nose',()=>{
+ const geometry=headGeometry(),points=geometry.getAttribute('position');
+ const band=(min:number,max:number)=>Array.from({length:points.count},(_,i)=>new Vector3().fromBufferAttribute(points,i)).filter(p=>p.y>=min&&p.y<=max);
+ const jaw=band(-.37,-.33),cranium=band(.1,.2),nose=band(-.135,-.10);
+ assert.ok(Math.max(...jaw.map(p=>Math.abs(p.x)))<Math.max(...cranium.map(p=>Math.abs(p.x)))*.8);
+ assert.ok(Math.max(...nose.map(p=>p.z))>Math.max(...cranium.map(p=>p.z))+.07);
+ geometry.dispose();
 });

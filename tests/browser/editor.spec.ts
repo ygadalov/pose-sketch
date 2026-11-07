@@ -107,3 +107,29 @@ test('side arrows reclaim width on desktop and in a phone desktop-site viewport'
   await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'Скрыть редактор поз',exact:true}).tap();await expect(page.locator('#editor-panel')).toBeHidden();await page.getByRole('button',{name:'Показать мастерскую',exact:true}).tap();await expect(page.locator('#workshop-panel')).toBeVisible();
  }finally{await context.close();}
 });
+
+test('hand tool detaches pose controls and only navigates the camera over the figure',async({page})=>{
+ await page.setViewportSize({width:1440,height:1000});await page.goto('/');await page.locator('#part').selectOption('leftArm');await page.locator('#move').click();await page.locator('[data-view="Спереди"]').click();
+ const pose=await getPose(page),handle=await page.evaluate(()=>(window as any).poseSketch.getHandle()),camera=await page.evaluate(()=>(window as any).poseSketch.getCamera());
+ await page.locator('#navigate').click();await expect(page.locator('#navigate')).toHaveAttribute('aria-pressed','true');expect(await page.evaluate(()=>(window as any).poseSketch.hasGizmo())).toBe(false);
+ await page.mouse.move(handle.x+45,handle.y);await page.mouse.down();await page.mouse.move(handle.x+100,handle.y+45,{steps:10});await page.mouse.up();await page.waitForTimeout(250);
+ expect(await getPose(page)).toEqual(pose);expect(await page.evaluate(()=>(window as any).poseSketch.getCamera())).not.toEqual(camera);
+ const selected=await page.locator('#part').inputValue();const head=await page.evaluate(()=>(window as any).poseSketch.getMarker('head'));await page.mouse.click(head.x,head.y);expect(await page.locator('#part').inputValue()).toBe(selected);
+ // Rebuilding geometry and selecting a part in the inspector must not silently unlock dragging.
+ await page.locator('[data-mode="Объём"]').click();await page.locator('#part').selectOption('leftLeg:bend');expect(await page.evaluate(()=>(window as any).poseSketch.getTool())).toBe('navigate');expect(await page.evaluate(()=>(window as any).poseSketch.hasGizmo())).toBe(false);expect(await getPose(page)).toEqual(pose);await expect(page.locator('#undo')).toBeDisabled();
+ // Rotation/move explicitly leaves overview; Escape returns without changing the pose.
+ await page.locator('#rotate').click();expect(await page.evaluate(()=>(window as any).poseSketch.hasGizmo())).toBe(true);await page.keyboard.press('Escape');expect(await page.evaluate(()=>(window as any).poseSketch.getTool())).toBe('navigate');expect(await getPose(page)).toEqual(pose);await page.keyboard.press('w');expect(await page.evaluate(()=>(window as any).poseSketch.getTool())).toBe('translate');await page.keyboard.press('h');expect(await page.evaluate(()=>(window as any).poseSketch.hasGizmo())).toBe(false);
+ const download=page.waitForEvent('download');await page.locator('#png').click();await (await download).saveAs('test-results/hand-tool-export.png');expect(await page.evaluate(()=>(window as any).poseSketch.hasGizmo())).toBe(false);expect(await getPose(page)).toEqual(pose);
+ await page.screenshot({path:'test-results/hand-tool-volume.png'});
+});
+
+test('touching and dragging a joint in hand mode preserves all pose coordinates',async({browser})=>{
+ const context=await browser.newContext({baseURL:'http://127.0.0.1:5173',viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+ try{
+  const page=await context.newPage();await page.goto('/');await page.locator('#navigate').tap();const pose=await getPose(page),camera=await page.evaluate(()=>(window as any).poseSketch.getCamera()),point=await page.evaluate(()=>(window as any).poseSketch.getMarker('leftArm'));
+  const cdp=await context.newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:point.x,y:point.y}]});for(let i=1;i<=8;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:point.x+50*i/8,y:point.y+40*i/8}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await page.waitForTimeout(250);
+  expect(await getPose(page)).toEqual(pose);expect(await page.evaluate(()=>(window as any).poseSketch.getCamera())).not.toEqual(camera);expect(await page.evaluate(()=>(window as any).poseSketch.hasGizmo())).toBe(false);await expect(page.locator('#undo')).toBeDisabled();
+  await page.locator('#move').tap();expect(await page.evaluate(()=>(window as any).poseSketch.hasGizmo())).toBe(true);expect(await getPose(page)).toEqual(pose);await page.locator('#navigate').tap();await page.screenshot({path:'test-results/hand-tool-phone.png'});
+ }finally{await context.close();}
+});

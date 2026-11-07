@@ -1,0 +1,1 @@
+{"name":"pose-sketch","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"vite --host 0.0.0.0","build":"tsc --noEmit && vite build","test":"tsx --test tests/*.test.ts","test:e2e":"playwright test"},"dependencies":{"three":"^0.185.0"},"devDependencies":{"@playwright/test":"^1.58.0","@types/three":"^0.183.0","tsx":"^4.21.0","typescript":"^5.9.3","vite":"^7.3.1"}}

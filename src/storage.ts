@@ -1,0 +1,5 @@
+import {basePose,limbNames,type Pose} from './model';
+export function parsePose(raw:string):Pose{const p=JSON.parse(raw);const triple=(a:unknown)=>Array.isArray(a)&&a.length===3&&a.every(n=>typeof n==='number'&&Number.isFinite(n)&&Math.abs(n)<=1000);if(p?.version!==1||!['root','rotation','pelvis','chest','head'].every(k=>triple(p[k]))||typeof p.limits!=='boolean'||!limbNames.every(k=>p.limbs?.[k]&&triple(p.limbs[k].target)&&triple(p.limbs[k].rotation)&&typeof p.limbs[k].pole==='number'&&Number.isFinite(p.limbs[k].pole)&&Math.abs(p.limbs[k].pole)<=1000))throw Error('Некорректный файл позы или неподдерживаемая версия');return p;}
+export function restore(){try{return parsePose(localStorage.getItem('posesketch-v1')||'');}catch{return basePose();}}
+export function save(p:Pose){try{localStorage.setItem('posesketch-v1',JSON.stringify(p));return true;}catch{return false;}}
+export function download(data:Blob,name:string){const a=document.createElement('a');a.href=URL.createObjectURL(data);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}

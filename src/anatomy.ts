@@ -22,7 +22,7 @@ function ringsGeometry(rings:T.Vector3[][]):T.BufferGeometry {
     const k=positions.length/3;positions.push(...center.toArray());
     for(let i=0;i<count;i++){const a=j*count+i,b=j*count+(i+1)%count;indices.push(k,...(reverse?[b,a]:[a,b]));}
   }
-  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setIndex(indices);geometry.computeVertexNormals();geometry.computeBoundingBox();return geometry;
+  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setIndex(indices);geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.userData.ringSize=count;geometry.userData.ringCount=rings.length;return geometry;
 }
 
 function interpolateProfile(profile:V[],t:number):[number,number]{
@@ -119,10 +119,14 @@ export function limbGeometry(start:T.Vector3,joint:T.Vector3,end:T.Vector3,limb:
     const u=(distance-a+rounding)/(2*rounding),before=joint.clone().addScaledVector(upper,-rounding),after=joint.clone().addScaledVector(lower,rounding);
     return before.multiplyScalar((1-u)*(1-u)).addScaledVector(joint,2*(1-u)*u).addScaledVector(after,u*u);
   };
+  let frame:T.Quaternion|undefined,previousTangent:T.Vector3|undefined;
   for(let j=0;j<=64;j++){
     const distance=total*j/64,point=center(distance);
     const tangent=center(Math.min(total,distance+.001)).sub(center(Math.max(0,distance-.001))).normalize();
-    const q=new T.Quaternion().setFromUnitVectors(new T.Vector3(0,1,0),tangent);
+    // Parallel transport prevents rings from flipping at downward-facing / bent joints.
+    if(!frame){let z=new T.Vector3(0,0,1).addScaledVector(tangent,-tangent.z);if(z.lengthSq()<1e-8)z=new T.Vector3(1,0,0).addScaledVector(tangent,-tangent.x);z.normalize();const x=tangent.clone().cross(z).normalize();z=x.clone().cross(tangent).normalize();frame=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,tangent,z));}
+    else frame.premultiply(new T.Quaternion().setFromUnitVectors(previousTangent!,tangent));
+    previousTangent=tangent.clone();const q=frame;
     let [width,depth]=distance<a?interpolateProfile(upperProfile,Math.max(0,(distance-extension)/(a-extension))):interpolateProfile(lowerProfile,(distance-a)/b);
     if(distance<extension){const u=T.MathUtils.clamp(distance/extension,0,1),fade=.01+.99*Math.sqrt(1-(1-u)*(1-u));width*=fade;depth*=fade;}
     rings.push(Array.from({length:32},(_,i)=>{const angle=i/32*Math.PI*2;const radial=new T.Vector3(Math.cos(angle)*width,0,Math.sin(angle)*depth).applyQuaternion(q);if(limb.includes('Leg'))radial.addScaledVector(kneeFront,.025*Math.exp(-Math.pow((distance-a)/.17,2))*Math.max(0,radial.clone().normalize().dot(kneeFront)));return radial.add(point);}));

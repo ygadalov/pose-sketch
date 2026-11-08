@@ -71,7 +71,6 @@ export class View {
   line(sk.neck,headPos.clone().add(new T.Vector3(0,-.36,0).applyQuaternion(headQ)));
   if(volume){
    const head=this.mesh(headGeometry(),anatomy.clay,this.model,opacity);head.position.copy(world(headPos));head.quaternion.copy(rootQ.clone().multiply(headQ));head.userData.anatomy='head';
-   for(const side of [-1,1])this.ellipsoid(world(new T.Vector3(side*.326,-.035,-.025).applyQuaternion(headQ).add(headPos)),[.055,.105,.045],rootQ.clone().multiply(headQ),anatomy.clay,opacity);
   }else{
    const head=this.ellipsoid(world(headPos),[.3655,.4945,.3526],rootQ.clone().multiply(headQ),0xf5f4ef);this.outlined(head);
    this.ellipsoid(world(new T.Vector3(0,-.025,.345).applyQuaternion(headQ).add(headPos)),[.055,.075,.09],rootQ.clone().multiply(headQ),0x52584e);

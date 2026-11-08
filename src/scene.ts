@@ -10,9 +10,9 @@ export class View {
  ortho=new T.OrthographicCamera(-5,5,5,-5,.01,200);perspective=new T.PerspectiveCamera(38,1,.01,200);camera:T.Camera=this.ortho;
  controls:OrbitControls;transform:TransformControls;mode='Скелет';overlay=false;selected='root'; pose!:Pose;grid:T.GridHelper;onCameraChange=()=>{}; onSelect=(id:string)=>{};onTransform=(_v:V,_rot:V)=>{};onStart=()=>{};onEnd=()=>{};
  constructor(public host:HTMLElement){
- this.scene.background=new T.Color('#f3f2ed');this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.domElement.setAttribute('aria-label','Рабочая область 3D. Стрелки клавиатуры перемещают камеру.');this.renderer.domElement.setAttribute('role','img');this.renderer.domElement.tabIndex=0;host.append(this.renderer.domElement);this.scene.add(this.model,this.markers);
+ this.scene.background=new T.Color('#f1f1eb');this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.domElement.setAttribute('aria-label','Рабочая область 3D. Стрелки клавиатуры перемещают камеру.');this.renderer.domElement.setAttribute('role','img');this.renderer.domElement.tabIndex=0;host.append(this.renderer.domElement);this.scene.add(this.model,this.markers);
  this.scene.add(new T.HemisphereLight(0xffffff,0x999587,2.6));const light=new T.DirectionalLight(0xffffff,3);light.position.set(4,8,5);this.scene.add(light);
- this.grid=new T.GridHelper(20,40,0xd4d2c9,0xe4e2da);this.scene.add(this.grid);this.ortho.position.set(8,6,12);this.perspective.position.copy(this.ortho.position);
+ this.grid=new T.GridHelper(20,40,0xd0d1c7,0xe3e4dc);this.scene.add(this.grid);this.ortho.position.set(8,6,12);this.perspective.position.copy(this.ortho.position);
  this.controls=new OrbitControls(this.camera,this.renderer.domElement);this.controls.target.set(0,3.4,0);this.controls.enableDamping=true;this.controls.listenToKeyEvents(this.renderer.domElement);this.controls.update();
  this.controls.addEventListener('change',()=>{this.dirty=true;this.onCameraChange();});
  this.transform=new TransformControls(this.camera,this.renderer.domElement);this.transform.setSize(.85);this.scene.add(this.transform.getHelper());
